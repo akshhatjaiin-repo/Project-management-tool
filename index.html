@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data:; font-src 'self' data:;">
+    <title>Kanban Board - Project Management Tool</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-left">
+            <div class="logo">
+                <h1 id="boardTitle">Kanban Board</h1>
+            </div>
+            <div class="board-controls">
+                <select id="boardSelector" class="board-selector">
+                    <option value="">Select Board</option>
+                </select>
+                <span class="board-hint" id="boardHint">Create a board to get started</span>
+                <button class="btn btn--primary" id="createBoardBtn">+ Create Board</button>
+            </div>
+            <div class="view-toggle">
+                <button id="board-view-btn" class="view-btn active" title="Board View">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="3" y="3" width="7" height="7" rx="1"/>
+                        <rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1"/>
+                        <rect x="14" y="14" width="7" height="7" rx="1"/>
+                    </svg>
+                    Board
+                </button>
+                <button id="list-view-btn" class="view-btn" title="List View">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="8" y1="6" x2="21" y2="6"/>
+                        <line x1="8" y1="12" x2="21" y2="12"/>
+                        <line x1="8" y1="18" x2="21" y2="18"/>
+                        <line x1="3" y1="6" x2="3.01" y2="6"/>
+                        <line x1="3" y1="12" x2="3.01" y2="12"/>
+                        <line x1="3" y1="18" x2="3.01" y2="18"/>
+                    </svg>
+                    List
+                </button>
+                <button id="dashboard-view-btn" class="view-btn" title="Dashboard View">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="9" rx="1"/>
+                        <rect x="14" y="3" width="7" height="5" rx="1"/>
+                        <rect x="14" y="12" width="7" height="9" rx="1"/>
+                        <rect x="3" y="16" width="7" height="5" rx="1"/>
+                    </svg>
+                    Dashboard
+                </button>
+            </div>
+        </div>
+        
+        <div class="navbar-right">
+            <div class="storage-status">
+                <span id="storage-status" class="status-text">Ready</span>
+                <span id="last-action" class="status-action"></span>
+            </div>
+            <div class="navbar-actions">
+                <button id="export-json-btn" class="btn btn--secondary" title="Export data as JSON file">
+                    📥 Export Backup
+                </button>
+                <button id="import-json-btn" class="btn btn--secondary" title="Import data from JSON file">
+                    📤 Import Backup
+                </button>
+                <button id="export-sheets-btn" class="btn btn--secondary" title="Export to Google Sheets">
+                    📊 Export to Sheets
+                </button>
+            </div>
+            <button class="btn-icon" id="boardSettingsBtn" title="Board Settings">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M12 1v6m0 6v6m8.66-9.66l-5.2 3M8.54 14.66l-5.2 3M23 12h-6m-6 0H5m15.66 3.34l-5.2-3M8.54 9.34l-5.2-3"></path>
+                </svg>
+            </button>
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" class="search-input" placeholder="Search projects by name, ID, or description...">
+                <button class="search-clear" id="searchClear" aria-label="Clear search">✕</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Empty State -->
+        <div id="emptyState" class="empty-state hidden">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <h2>No Board Selected</h2>
+            <p>Create a new board to start managing your projects</p>
+            <button class="btn btn--primary" onclick="document.getElementById('createBoardBtn').click()">Create Your First Board</button>
+        </div>
+
+        <!-- Board Container -->
+        <div id="boardContainer" class="board-container hidden">
+            <div class="board-header">
+                <div>
+                    <h2 id="currentBoardName" class="board-name">Board Name</h2>
+                    <p id="currentBoardDesc" class="board-description">Board description</p>
+                </div>
+                <button class="btn btn--secondary" id="addColumnBtn">+ Add Column</button>
+            </div>
+            <div id="columnsContainer" class="columns-container"></div>
+        </div>
+
+        <!-- List View Container -->
+        <div id="listViewContainer" class="list-view-container" style="display: none;">
+            <div class="list-view-header">
+                <div>
+                    <h2>All Projects</h2>
+                </div>
+                <div class="list-view-actions">
+                    <button id="add-project-list-btn" class="btn btn--primary" style="font-size: 14px; padding: 10px 20px;">+ Add Project</button>
+                    <input type="text" id="list-search" placeholder="Search in list..." class="list-search-input"/>
+                    <select id="list-filter" class="list-filter-select">
+                        <option value="all">All Columns</option>
+                    </select>
+                    <button id="export-list-btn" class="btn btn--secondary">📊 Export List</button>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table class="projects-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="projectId">Project ID <span class="sort-icon">⬍</span></th>
+                            <th data-sort="projectName">Project Name <span class="sort-icon">⬍</span></th>
+                            <th data-sort="column">Column <span class="sort-icon">⬍</span></th>
+                            <th data-sort="description">Description <span class="sort-icon">⬍</span></th>
+                            <th>Links</th>
+                            <th>Comments</th>
+                            <th>Last Updated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="projects-table-body">
+                        <!-- Rows will be generated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="list-view-footer">
+                <span id="list-total-count">Total: 0 projects</span>
+            </div>
+        </div>
+
+        <!-- Dashboard View Container -->
+        <div id="dashboard-view-container" class="dashboard-view-container" style="display: none;">
+            <div class="dashboard-header">
+                <div>
+                    <h2>📈 Dashboard Overview</h2>
+                    <div class="dashboard-subtitle">Real-time insights and analytics</div>
+                </div>
+                <div class="dashboard-header-actions">
+                    <button class="btn btn--primary add-widget-btn" id="addCustomWidgetBtn">
+                        ➕ Add Custom Widget
+                    </button>
+                    <button class="btn btn--primary customize-dashboard-btn" id="customizeDashboardBtn">
+                        ⚙️ Customize Dashboard
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Statistics Cards -->
+            <div class="stats-grid">
+                <div class="stat-card stat-total clickable" onclick="drillDown('total')">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-value" id="stat-total">0</div>
+                    <div class="stat-label">Total Projects</div>
+                    <div class="stat-hint">Click to view all</div>
+                </div>
+                
+                <div class="stat-card stat-todo clickable" onclick="drillDown('column', 0)">
+                    <div class="stat-icon">📝</div>
+                    <div class="stat-value" id="stat-todo">0</div>
+                    <div class="stat-label">To Do</div>
+                    <div class="stat-hint">Click to view</div>
+                </div>
+                
+                <div class="stat-card stat-progress clickable" onclick="drillDown('column', 1)">
+                    <div class="stat-icon">🚀</div>
+                    <div class="stat-value" id="stat-progress">0</div>
+                    <div class="stat-label">In Progress</div>
+                    <div class="stat-hint">Click to view</div>
+                </div>
+                
+                <div class="stat-card stat-done clickable" onclick="drillDown('column', 2)">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-value" id="stat-done">0</div>
+                    <div class="stat-label">Completed</div>
+                    <div class="stat-hint">Click to view</div>
+                </div>
+            </div>
+            
+            <!-- Charts Row -->
+            <div class="charts-row">
+                <div class="chart-card">
+                    <h3>Projects by Column</h3>
+                    <canvas id="projects-chart"></canvas>
+                </div>
+                
+                <div class="chart-card">
+                    <h3>Activity &amp; Engagement</h3>
+                    <div class="engagement-stats">
+                        <div class="engagement-item clickable" onclick="drillDown('links')">
+                            <span class="engagement-icon">🔗</span>
+                            <div class="engagement-info">
+                                <div class="engagement-value" id="total-links">0</div>
+                                <div class="engagement-label">Total Links</div>
+                            </div>
+                        </div>
+                        <div class="engagement-item clickable" onclick="drillDown('comments')">
+                            <span class="engagement-icon">💬</span>
+                            <div class="engagement-info">
+                                <div class="engagement-value" id="total-comments">0</div>
+                                <div class="engagement-label">Total Comments</div>
+                            </div>
+                        </div>
+                        <div class="engagement-item clickable" onclick="drillDown('activities')">
+                            <span class="engagement-icon">📋</span>
+                            <div class="engagement-info">
+                                <div class="engagement-value" id="total-activities">0</div>
+                                <div class="engagement-label">Total Activities</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Activity & Top Projects -->
+            <div class="insights-row">
+                <div class="insight-card">
+                    <h3>🔥 Recent Activity</h3>
+                    <div id="recent-activity-list" class="activity-feed">
+                        <!-- Activities will be rendered here -->
+                    </div>
+                </div>
+                
+                <div class="insight-card">
+                    <h3>🏆 Most Active Projects</h3>
+                    <div id="top-projects-list" class="top-projects-list">
+                        <!-- Top projects will be rendered here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Completion Rate -->
+            <div class="completion-section">
+                <h3>Completion Rate</h3>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="completion-bar" style="width: 0%"></div>
+                </div>
+                <div class="completion-text">
+                    <span id="completion-percentage">0%</span> of projects completed
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Create Board Modal -->
+    <div id="createBoardModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Board</h3>
+                <button class="btn-close" onclick="closeModal('createBoardModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Board Name *</label>
+                    <input type="text" id="newBoardName" class="form-control" placeholder="My Project Board" maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Project ID Prefix *</label>
+                    <input type="text" id="newBoardPrefix" class="form-control" placeholder="PROJ" maxlength="10" style="text-transform: uppercase;">
+                    <small class="form-help">Used for auto-generating project IDs (e.g., PROJ-001)</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea id="newBoardDesc" class="form-control" rows="3" placeholder="Describe your board..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--secondary" onclick="closeModal('createBoardModal')">Cancel</button>
+                <button class="btn btn--primary" id="confirmCreateBoard">Create Board</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Board Settings Modal -->
+    <div id="boardSettingsModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Board Settings</h3>
+                <button class="btn-close" onclick="closeModal('boardSettingsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Board Name *</label>
+                    <input type="text" id="editBoardName" class="form-control" maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Project ID Prefix *</label>
+                    <input type="text" id="editBoardPrefix" class="form-control" maxlength="10" style="text-transform: uppercase;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea id="editBoardDesc" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <button class="btn btn--danger" id="deleteBoardBtn">Delete Board</button>
+                </div>
+                <div class="form-group" style="padding-top: 16px; border-top: 1px solid rgba(94, 82, 64, 0.12);">
+                    <label class="form-label" style="color: var(--color-error);">Danger Zone</label>
+                    <button class="btn btn--danger" id="clearAllDataBtn" style="width: 100%;">Clear All Data</button>
+                    <small class="form-help" style="color: var(--color-error); font-style: normal;">This will delete ALL boards and data. Export backup first!</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--secondary" onclick="closeModal('boardSettingsModal')">Cancel</button>
+                <button class="btn btn--primary" id="saveBoardSettings">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Column Modal -->
+    <div id="addColumnModal" class="modal hidden">
+        <div class="modal-content modal-content--small">
+            <div class="modal-header">
+                <h3>Add Column</h3>
+                <button class="btn-close" onclick="closeModal('addColumnModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Column Title *</label>
+                    <input type="text" id="newColumnTitle" class="form-control" placeholder="Column name">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--secondary" onclick="closeModal('addColumnModal')">Cancel</button>
+                <button class="btn btn--primary" id="confirmAddColumn">Add Column</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Details Modal -->
+    <div id="projectModal" class="modal hidden">
+        <div class="modal-content modal-content--large">
+            <div class="modal-header">
+                <div class="project-modal-header">
+                    <input type="text" id="modalProjectId" class="project-id-input" placeholder="PROJ-001">
+                    <input type="text" id="modalProjectName" class="project-name-input" placeholder="Project Name">
+                </div>
+                <button class="btn-close" onclick="closeProjectModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea id="modalProjectDesc" class="form-control" rows="4" placeholder="Add project description..."></textarea>
+                </div>
+
+                <!-- Column Selector Section -->
+                <div class="form-group" style="background: rgba(var(--color-teal-500-rgb), 0.05); padding: 16px; border-radius: var(--radius-md); border: 2px solid rgba(var(--color-teal-500-rgb), 0.2);">
+                    <label class="form-label" style="font-size: 16px; font-weight: 600; color: var(--color-primary);">📍 Select Column *</label>
+                    <select id="modalProjectColumn" class="form-control" style="font-size: 16px; padding: 12px; border: 2px solid rgba(var(--color-teal-500-rgb), 0.3);">
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                    <small class="form-help" style="margin-top: 8px; color: var(--color-primary);">Select the column for this project. Changes are tracked in activity log.</small>
+                </div>
+
+                <!-- Links Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <h4>Links</h4>
+                        <button class="btn btn--sm btn--secondary" id="addLinkBtn">+ Add Link</button>
+                    </div>
+                    <div id="linksContainer" class="links-container">
+                        <p class="empty-message">No links added yet</p>
+                    </div>
+                </div>
+
+                <!-- Comments Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <h4>Comments</h4>
+                    </div>
+                    <div class="comment-input-group">
+                        <textarea id="newCommentText" class="form-control" rows="2" placeholder="Add a comment... (unlimited length)"></textarea>
+                        <button class="btn btn--primary btn--sm" id="addCommentBtn">Add Comment</button>
+                    </div>
+                    <div id="commentsContainer" class="comments-container">
+                        <p class="empty-message">No comments yet</p>
+                    </div>
+                </div>
+
+                <!-- Activity Log Section -->
+                <div class="section">
+                    <div class="section-header section-header--collapsible" onclick="toggleActivityLog()">
+                        <div class="section-title-group">
+                            <h4>📋 Activity Log</h4>
+                            <span class="activity-count" id="activityCount">0</span>
+                        </div>
+                        <button class="btn-icon" id="activityToggleBtn" type="button">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="activityLogContainer" class="activity-log-container">
+                        <p class="empty-message">No activities yet</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--danger" id="deleteProjectBtn">Delete Project</button>
+                <button class="btn btn--primary" onclick="closeProjectModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Link Modal -->
+    <div id="addLinkModal" class="modal hidden">
+        <div class="modal-content modal-content--small">
+            <div class="modal-header">
+                <h3 id="linkModalTitle">Add Link</h3>
+                <button class="btn-close" onclick="closeModal('addLinkModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Title *</label>
+                    <input type="text" id="linkTitle" class="form-control" placeholder="Link title">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">URL *</label>
+                    <input type="url" id="linkUrl" class="form-control" placeholder="https://example.com">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--secondary" onclick="closeModal('addLinkModal')">Cancel</button>
+                <button class="btn btn--primary" id="confirmAddLink">Save Link</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal hidden">
+        <div class="modal-content modal-content--small">
+            <div class="modal-header">
+                <h3 id="confirmTitle">Confirm Action</h3>
+                <button class="btn-close" onclick="closeModal('confirmModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage">Are you sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--secondary" onclick="closeModal('confirmModal')">Cancel</button>
+                <button class="btn btn--danger" id="confirmAction">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drill-Down Modal -->
+    <div id="drilldown-modal" class="modal drilldown-modal" style="display: none;">
+        <div class="modal-content drilldown-content">
+            <div class="drilldown-header">
+                <h2 id="drilldown-title">Projects</h2>
+                <button class="close-btn" onclick="closeDrillDown()">✕</button>
+            </div>
+            
+            <div class="drilldown-toolbar">
+                <input type="text" id="drilldown-search" placeholder="Search projects..." class="drilldown-search"/>
+                <span id="drilldown-count" class="drilldown-count">0 projects</span>
+            </div>
+            
+            <div class="drilldown-list" id="drilldown-list">
+                <!-- Projects will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <!-- Dashboard Customization Modal -->
+    <div id="customizeDashboardModal" class="modal hidden">
+        <div class="modal-content modal-content--xlarge">
+            <div class="modal-header">
+                <h3>⚙️ Customize Dashboard</h3>
+                <button class="btn-close" onclick="closeModal('customizeDashboardModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Tabs -->
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="widgets">Widgets</button>
+                    <button class="tab-btn" data-tab="filters">Filters</button>
+                    <button class="tab-btn" data-tab="metrics">Custom Metrics</button>
+                    <button class="tab-btn" data-tab="settings">Settings</button>
+                </div>
+                
+                <!-- Tab Content -->
+                <div class="tab-content">
+                    <!-- Widgets Tab -->
+                    <div class="tab-pane active" id="widgets-tab">
+                        <h4>Widget Visibility</h4>
+                        <p class="tab-description">Toggle widgets on/off and reorder them</p>
+                        <div id="widgets-list" class="widgets-list">
+                            <!-- Will be populated by JS -->
+                        </div>
+                    </div>
+                    
+                    <!-- Filters Tab -->
+                    <div class="tab-pane" id="filters-tab">
+                        <h4>Dashboard Filters</h4>
+                        <p class="tab-description">Filter data shown in all dashboard widgets</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Date Range</label>
+                            <select id="filter-date-range" class="form-control">
+                                <option value="all">All Time</option>
+                                <option value="today">Today</option>
+                                <option value="7days">Last 7 Days</option>
+                                <option value="30days">Last 30 Days</option>
+                                <option value="thismonth">This Month</option>
+                                <option value="lastmonth">Last Month</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" id="custom-date-range-inputs" style="display: none;">
+                            <label class="form-label">Custom Date Range</label>
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                <div style="flex: 1;">
+                                    <label class="form-label" style="font-size: 12px; margin-bottom: 4px;">From Date</label>
+                                    <input type="date" id="custom-date-from" class="form-control">
+                                </div>
+                                <div style="flex: 1;">
+                                    <label class="form-label" style="font-size: 12px; margin-bottom: 4px;">To Date</label>
+                                    <input type="date" id="custom-date-to" class="form-control">
+                                </div>
+                            </div>
+                            <button class="btn btn--primary" id="applyCustomRangeBtn" style="margin-top: 12px; width: 100%;">Apply Custom Range</button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Column Filter</label>
+                            <select id="filter-column" class="form-control">
+                                <option value="all">All Columns</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Project Status</label>
+                            <select id="filter-status" class="form-control">
+                                <option value="all">All Projects</option>
+                                <option value="has-links">Has Links</option>
+                                <option value="has-comments">Has Comments</option>
+                                <option value="active-7days">Active in Last 7 Days</option>
+                                <option value="inactive-30days">Inactive 30+ Days</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-actions">
+                            <button class="btn btn--primary" id="applyFiltersBtn">Apply Filters</button>
+                            <button class="btn btn--secondary" id="clearFiltersBtn">Clear Filters</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Custom Metrics Tab -->
+                    <div class="tab-pane" id="metrics-tab">
+                        <h4>Custom Metrics</h4>
+                        <p class="tab-description">Create custom metrics to track specific project conditions</p>
+                        
+                        <button class="btn btn--primary" id="createMetricBtn">+ Create Custom Metric</button>
+                        
+                        <div id="custom-metrics-list" class="custom-metrics-list">
+                            <!-- Will be populated by JS -->
+                        </div>
+                        
+                        <!-- Metric Builder (hidden by default) -->
+                        <div id="metric-builder" class="metric-builder hidden">
+                            <h5>Metric Builder</h5>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Metric Name</label>
+                                <input type="text" id="metric-name" class="form-control" placeholder="e.g., High Priority Projects">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Metric Type</label>
+                                <select id="metric-type" class="form-control">
+                                    <option value="count">Count</option>
+                                    <option value="percentage">Percentage</option>
+                                    <option value="list">List</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Icon</label>
+                                <input type="text" id="metric-icon" class="form-control" placeholder="e.g., 🔥" maxlength="2">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Color</label>
+                                <input type="color" id="metric-color" class="form-control" value="#6366f1">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Conditions</label>
+                                <div id="metric-conditions" class="metric-conditions">
+                                    <!-- Conditions will be added here -->
+                                </div>
+                                <button class="btn btn--sm btn--secondary" id="addConditionBtn">+ Add Condition</button>
+                            </div>
+                            
+                            <div class="metric-preview">
+                                <strong>Preview:</strong> <span id="metric-preview-count">0</span> projects match
+                            </div>
+                            
+                            <div class="metric-builder-actions">
+                                <button class="btn btn--primary" id="saveMetricBtn">Save Metric</button>
+                                <button class="btn btn--secondary" id="cancelMetricBtn">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Settings Tab -->
+                    <div class="tab-pane" id="settings-tab">
+                        <h4>Dashboard Settings</h4>
+                        <p class="tab-description">Configure dashboard behavior and appearance</p>
+                        
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="auto-refresh" class="checkbox-input">
+                                <span>Auto-refresh dashboard (every 30 seconds)</span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Dashboard Theme</label>
+                            <select id="dashboard-theme" class="form-control">
+                                <option value="default">Default</option>
+                                <option value="compact">Compact</option>
+                                <option value="detailed">Detailed</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--secondary" id="resetDashboardBtn">Reset to Default</button>
+                <button class="btn btn--secondary" id="exportConfigBtn">Export Config</button>
+                <button class="btn btn--secondary" id="importConfigBtn">Import Config</button>
+                <button class="btn btn--primary" id="saveDashboardConfigBtn">Save &amp; Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Widget Builder Modal -->
+    <div id="widgetBuilderModal" class="modal hidden">
+        <div class="modal-content modal-content--xlarge">
+            <div class="modal-header">
+                <h3>🎨 Create Custom Widget</h3>
+                <button class="btn-close" onclick="closeModal('widgetBuilderModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Step Indicator -->
+                <div class="widget-builder-steps">
+                    <div class="step-item active" data-step="1">
+                        <div class="step-number">1</div>
+                        <div class="step-label">Choose Type</div>
+                    </div>
+                    <div class="step-item" data-step="2">
+                        <div class="step-number">2</div>
+                        <div class="step-label">Select Data</div>
+                    </div>
+                    <div class="step-item" data-step="3">
+                        <div class="step-number">3</div>
+                        <div class="step-label">Customize Style</div>
+                    </div>
+                </div>
+
+                <!-- Step 1: Choose Widget Type -->
+                <div class="widget-builder-step" id="widget-step-1">
+                    <h4 style="margin-bottom: 24px; text-align: center; color: var(--color-text);">Choose Widget Type</h4>
+                    <div class="widget-type-grid">
+                        <div class="widget-type-card" data-type="stat_card" onclick="selectWidgetType('stat_card')">
+                            <div class="widget-type-icon">📊</div>
+                            <div class="widget-type-name">Stat Card</div>
+                            <div class="widget-type-desc">Display single number</div>
+                        </div>
+                        <div class="widget-type-card" data-type="list" onclick="selectWidgetType('list')">
+                            <div class="widget-type-icon">📋</div>
+                            <div class="widget-type-name">List Widget</div>
+                            <div class="widget-type-desc">Show list of projects</div>
+                        </div>
+                        <div class="widget-type-card" data-type="chart" onclick="selectWidgetType('chart')">
+                            <div class="widget-type-icon">📈</div>
+                            <div class="widget-type-name">Chart Widget</div>
+                            <div class="widget-type-desc">Visual chart</div>
+                        </div>
+                        <div class="widget-type-card" data-type="table" onclick="selectWidgetType('table')">
+                            <div class="widget-type-icon">📑</div>
+                            <div class="widget-type-name">Table Widget</div>
+                            <div class="widget-type-desc">Tabular data</div>
+                        </div>
+                        <div class="widget-type-card" data-type="progress" onclick="selectWidgetType('progress')">
+                            <div class="widget-type-icon">⏳</div>
+                            <div class="widget-type-name">Progress Bar</div>
+                            <div class="widget-type-desc">Completion bar</div>
+                        </div>
+                        <div class="widget-type-card" data-type="custom_metric" onclick="selectWidgetType('custom_metric')">
+                            <div class="widget-type-icon">🎯</div>
+                            <div class="widget-type-name">Custom Metric</div>
+                            <div class="widget-type-desc">Use custom metrics</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Select Data Source -->
+                <div class="widget-builder-step hidden" id="widget-step-2">
+                    <h4 style="margin-bottom: 24px; color: var(--color-text);">Select Data Source</h4>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Data Type</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="dataType" value="built-in" checked onchange="toggleDataSourceOptions()">
+                                <span>Built-in Metrics</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="dataType" value="custom" onchange="toggleDataSourceOptions()">
+                                <span>Custom Metrics (Use your custom metrics!)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="dataType" value="manual" onchange="toggleDataSourceOptions()">
+                                <span>Manual Configuration</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="built-in-metrics-section" class="form-group">
+                        <label class="form-label">Select Built-in Metric</label>
+                        <select id="built-in-metric" class="form-control">
+                            <option value="total">Total Projects</option>
+                            <option value="by-column">Projects by Column</option>
+                            <option value="links">Total Links Count</option>
+                            <option value="comments">Total Comments Count</option>
+                            <option value="activities">Total Activities Count</option>
+                            <option value="completion">Completion Rate</option>
+                        </select>
+                    </div>
+
+                    <div id="custom-metrics-section" class="form-group hidden">
+                        <label class="form-label" style="color: var(--color-primary); font-weight: 600; font-size: 16px;">📊 Select Your Custom Metric</label>
+                        <select id="custom-metric-select" class="form-control" style="border: 2px solid var(--color-primary); background: rgba(var(--color-teal-500-rgb), 0.05);">
+                            <option value="">-- Choose a custom metric --</option>
+                        </select>
+                        <div id="custom-metric-info" class="metric-preview" style="display: none; margin-top: 12px;"></div>
+                        <p class="form-help" style="margin-top: 12px; color: var(--color-primary);">💡 Create custom metrics in Dashboard Customization → Metrics tab</p>
+                    </div>
+
+                    <div id="manual-config-section" class="form-group hidden">
+                        <label class="form-label">Manual Value</label>
+                        <input type="text" id="manual-value" class="form-control" placeholder="Enter value manually">
+                    </div>
+                </div>
+
+                <!-- Step 3: Customize Style -->
+                <div class="widget-builder-step hidden" id="widget-step-3">
+                    <h4 style="margin-bottom: 24px; color: var(--color-text);">Customize Widget Style</h4>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Widget Name</label>
+                        <input type="text" id="widget-name" class="form-control" placeholder="My Custom Widget">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Icon (Emoji)</label>
+                        <input type="text" id="widget-icon" class="form-control" placeholder="🎯" maxlength="2">
+                        <small class="form-help">Enter an emoji (e.g., 🎯, 📊, 🔥, 💡)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Widget Color</label>
+                        <input type="color" id="widget-color" class="form-control" value="#6366f1">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Widget Size</label>
+                        <select id="widget-size" class="form-control">
+                            <option value="small">Small (1 column)</option>
+                            <option value="medium" selected>Medium (2 columns)</option>
+                            <option value="large">Large (3 columns)</option>
+                            <option value="full">Full Width (4 columns)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="widget-drilldown" class="checkbox-input" checked>
+                            <span>Enable drill-down on click</span>
+                        </label>
+                    </div>
+
+                    <div class="widget-preview-box">
+                        <h5 style="margin-bottom: 12px; color: var(--color-text);">Preview</h5>
+                        <div id="widget-preview" class="widget-preview-content">
+                            <div class="stat-card" style="background: rgba(99, 102, 241, 0.1); border-left: 4px solid #6366f1;">
+                                <div class="stat-icon">🎯</div>
+                                <div class="stat-value">42</div>
+                                <div class="stat-label">My Custom Widget</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn--secondary" id="widget-prev-btn" onclick="previousWidgetStep()" style="display: none;">← Previous</button>
+                <button class="btn btn--secondary" onclick="closeModal('widgetBuilderModal')">Cancel</button>
+                <button class="btn btn--primary" id="widget-next-btn" onclick="nextWidgetStep()">Next →</button>
+                <button class="btn btn--primary" id="widget-create-btn" onclick="createCustomWidget()" style="display: none;">✨ Create Widget</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Backup Reminder -->
+    <div id="backupReminder" class="backup-reminder hidden">
+        <div class="reminder-content">
+            <div class="reminder-icon">💾</div>
+            <div class="reminder-text">
+                <strong>Backup Reminder</strong>
+                <p>It's been a while since your last backup. Click "Export Backup" to save your data safely.</p>
+            </div>
+            <div class="reminder-actions">
+                <button class="btn btn--secondary btn--sm" onclick="dismissBackupReminder()">Dismiss</button>
+                <button class="btn btn--primary btn--sm" onclick="exportToJSON(); dismissBackupReminder();">Backup Now</button>
+            </div>
+            <button class="btn-close-reminder" onclick="dismissBackupReminder()">&times;</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
